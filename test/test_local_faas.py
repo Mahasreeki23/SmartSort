@@ -4,12 +4,18 @@ import socket
 import ssl
 import json
 import base64
+import os
 
+# ---------------- CONFIG ----------------
 HOST = "bitproduction.bitone.in"
 PORT = 443
 FUNCTION_NAME = "SmartSort"
 
+# 👉 Change this to your test image path
+IMAGE_PATH = "2026.jpg"
 
+
+# ---------------- BIN MAPPING ----------------
 def map_category_to_bin(category):
     category = category.lower().strip()
 
@@ -28,6 +34,7 @@ def map_category_to_bin(category):
     return 3
 
 
+# ---------------- FAAS CALL ----------------
 def send_to_faas(image_bytes):
     payload = {
         "image_b64": base64.b64encode(image_bytes).decode("utf-8")
@@ -43,6 +50,8 @@ def send_to_faas(image_bytes):
         "Connection: close\r\n\r\n"
         f"{body}"
     )
+
+    print("📡 Connecting to SmartSort FAAS...\n")
 
     sock = socket.create_connection((HOST, PORT))
     context = ssl._create_unverified_context()
@@ -60,18 +69,49 @@ def send_to_faas(image_bytes):
     ssock.close()
 
     response_text = response.decode(errors="ignore")
-    _, body = response_text.split("\r\n\r\n", 1)
 
-    print(f"📡 FAAS Response: {body}")
+    try:
+        _, body = response_text.split("\r\n\r\n", 1)
+    except:
+        print("❌ Invalid HTTP response")
+        print(response_text)
+        return
+
+    print("📥 Raw Response:")
+    print(body)
 
     try:
         result = json.loads(body)
+
         category = result.get("classification", "")
-    except:
-        category = body.strip()
+        confidence = result.get("confidence_percent", 0)
 
-    bin_number = map_category_to_bin(category)
+        print("\n🧠 Parsed Result:")
+        print(f"Category   : {category}")
+        print(f"Confidence : {confidence:.2f}%")
 
-    print(f"🧠 Category: {category} → Bin {bin_number}")
+        bin_number = map_category_to_bin(category)
 
-    return bin_number
+        print(f"\n🗑️ Final Bin → Bin {bin_number}")
+
+    except Exception as e:
+        print("❌ JSON parse error:", e)
+        print(body)
+
+
+# ---------------- MAIN ----------------
+def main():
+    if not os.path.exists(IMAGE_PATH):
+        print(f"❌ Image not found: {IMAGE_PATH}")
+        return
+
+    print("\n===== Local FAAS Test =====\n")
+
+    with open(IMAGE_PATH, "rb") as f:
+        image_bytes = f.read()
+
+    send_to_faas(image_bytes)
+
+
+if __name__ == "__main__":
+    main()

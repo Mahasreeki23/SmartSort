@@ -99,12 +99,12 @@ def move_bin(bin_number):
 # Lid control
 def open_lid():
     print("🟢 Opening lid")
-    set_servo_angle(servo_lid, 90)
+    set_servo_angle(servo_lid, 0)
 
 
 def close_lid():
     print("🔴 Closing lid")
-    set_servo_angle(servo_lid, 0)
+    set_servo_angle(servo_lid, 90)
 
 
 def cleanup():
